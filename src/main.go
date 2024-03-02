@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flappy/src/audio"
 	game "flappy/src/game"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -22,7 +23,9 @@ var (
 
 func main() {
 	rl.InitWindow(ScreenWidth, ScreenHeight, "GO flappy bird")
+
 	defer rl.CloseWindow()
+	defer rl.CloseAudioDevice()
 
 	rl.SetTargetFPS(fps)
 
@@ -105,14 +108,27 @@ func main() {
 				rl.DrawTexture(BlTexture, int32(initialX)-BlTexture.Width/2, int32(initialY)-BlTexture.Height/2, rl.RayWhite)
 			}
 		case game.EnterGame:
+
+			game.Gravity = 0.5
+			game.JumpForce = 0.7
+			game.BirdVelocity = 0.6
+			frameCounts = 0
+
 			flight := func() {
 				if rl.IsKeyDown(rl.KeySpace) && !GameOver {
 
-					BirdUpTexture = rl.LoadTextureFromImage(BirdUp)
 					*birdCord.BirdPosX += game.BirdVelocity
-					*birdCord.BirdPosY -= game.BirdVelocity
-
+					*birdCord.BirdPosY -= game.JumpForce
 					BirdUpTexture = rl.LoadTextureFromImage(BirdUp)
+
+					if audio.FlapSoundCtrl.Paused {
+						audio.FlapSoundCtrl.Paused = false
+					} else {
+						if !audio.FlapSoundCtrl.Paused {
+							audio.FlapSoundCtrl.Paused = true
+						}
+					}
+
 				} else {
 					BirdUpTexture = rl.LoadTextureFromImage(BirdDown)
 					*birdCord.BirdPosY += game.Gravity
@@ -120,10 +136,13 @@ func main() {
 
 				if *birdCord.BirdPosX >= ScreenWidth || *birdCord.BirdPosY >= ScreenHeight {
 					GameOver = true
+
 					game.CurrentState = game.EndGame
+
 				}
 			}
 			flight()
+			audio.LoadFlapSound("./audio/swoosh.ogg")
 
 			rl.DrawTexture(wallTexture, initialX-wallTexture.Width/2, initialY-wallTexture.Height/2, rl.RayWhite)
 			rl.DrawTexture(BirdUpTexture, int32(*birdCord.BirdPosX), int32(*birdCord.BirdPosY), rl.White)
