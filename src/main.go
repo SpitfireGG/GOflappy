@@ -1,7 +1,8 @@
+// PERF: add levels , forgot that shit
+
 package main
 
 import (
-	"flappy/src/audio"
 	game "flappy/src/game"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -19,10 +20,13 @@ var (
 
 	frameCounts = 0
 	GameOver    = false
+
+	Paused = false
 )
 
 func main() {
 	rl.InitWindow(ScreenWidth, ScreenHeight, "GO flappy bird")
+	rl.InitAudioDevice()
 
 	defer rl.CloseWindow()
 	defer rl.CloseAudioDevice()
@@ -41,6 +45,9 @@ func main() {
 	logo := rl.LoadImage("sprites/logo.png")
 	logoTexture := rl.LoadTextureFromImage(logo)
 
+	pause := rl.LoadImage("sprites/pause.png")
+	pauseTexture := rl.LoadTextureFromImage(pause)
+
 	BirdLogo := rl.LoadImage("./sprites/message.png")
 	BlTexture := rl.LoadTextureFromImage(BirdLogo)
 
@@ -48,9 +55,12 @@ func main() {
 	deadTexture := rl.LoadTextureFromImage(dead)
 
 	BirdUpTexture := rl.LoadTextureFromImage(BirdUp)
+	// BirdDownTexture := rl.LoadTextureFromImage(BirdDown)
 
 	PipeUpTexture := rl.LoadTextureFromImage(pipeUp)
 	PipeDownTexture := rl.LoadTextureFromImage(pipeDown)
+
+	die := rl.LoadSound("./audio/die.ogg")
 
 	defer func() {
 		rl.UnloadTexture(BirdUpTexture)
@@ -61,6 +71,7 @@ func main() {
 		rl.UnloadTexture(PipeUpTexture)
 		rl.UnloadTexture(PipeDownTexture)
 		rl.UnloadTexture(deadTexture)
+		rl.UnloadSound(die)
 	}()
 
 	var initialPosX float32 = ScreenWidth/2 - float32(BirdUpTexture.Width)/2
@@ -76,17 +87,8 @@ func main() {
 		BirdPosY:   &initialPosY,
 	}
 
-	/* pipeProps := game.Pipe{
-		PipePosX1:  ScreenWidth,
-		PipePosX2:  ScreenHeight,
-		PipeWidth:  pipeUp.Width,
-		PipeHeight: pipeUp.Height,
-		Speed:      5,
-		PipesGap:   200,
-	}
-	*/
-
 	game.CurrentState = game.Title
+	delta := rl.GetFrameTime()
 
 	for !rl.WindowShouldClose() {
 
@@ -109,43 +111,65 @@ func main() {
 			}
 		case game.EnterGame:
 
-			game.Gravity = 0.5
-			game.JumpForce = 0.7
-			game.BirdVelocity = 0.6
-			frameCounts = 0
+			// var newbvPosY float32
+			var pauseYcord float32
+			var pauseXcord float32
 
-			flight := func() {
-				if rl.IsKeyDown(rl.KeySpace) && !GameOver {
-
-					*birdCord.BirdPosX += game.BirdVelocity
-					*birdCord.BirdPosY -= game.JumpForce
-					BirdUpTexture = rl.LoadTextureFromImage(BirdUp)
-
-					if audio.FlapSoundCtrl.Paused {
-						audio.FlapSoundCtrl.Paused = false
-					} else {
-						if !audio.FlapSoundCtrl.Paused {
-							audio.FlapSoundCtrl.Paused = true
-						}
-					}
-
-				} else {
-					BirdUpTexture = rl.LoadTextureFromImage(BirdDown)
-					*birdCord.BirdPosY += game.Gravity
+			isPaused := func() {
+				if !Paused && rl.IsKeyPressed(rl.KeyBackspace) {
+					Paused = true
+				} else if Paused && rl.IsKeyPressed(rl.KeyBackspace) {
+					Paused = false
 				}
-
-				if *birdCord.BirdPosX >= ScreenWidth || *birdCord.BirdPosY >= ScreenHeight {
-					GameOver = true
-
-					game.CurrentState = game.EndGame
-
+				if Paused {
+					rl.DrawTexture(BirdUpTexture, int32(pauseXcord), int32(pauseYcord), rl.RayWhite)
+					rl.DrawText("Paused", 50, 50, 40, rl.Red)
 				}
 			}
-			flight()
-			audio.LoadFlapSound("./audio/swoosh.ogg")
+
+			// NOTE: This needs some fixes
+			flight := func() {
+				if !Paused {
+
+					if rl.IsKeyDown(rl.KeySpace) && !GameOver {
+						BirdUpTexture = rl.LoadTextureFromImage(BirdUp)
+						*birdCord.BirdPosY -= game.JumpForce*delta + game.JumpForce
+						pauseYcord = *birdCord.BirdPosY
+					} else {
+						*birdCord.BirdPosY += game.Gravity
+						BirdUpTexture = rl.LoadTextureFromImage(BirdDown)
+					}
+					*birdCord.BirdPosX += game.BirdVelocity*delta + game.BirdVelocity
+					pauseXcord = *birdCord.BirdPosX
+				}
+			}
+			rl.DrawTexture(BirdUpTexture, int32(*birdCord.BirdPosX), int32(*birdCord.BirdPosY), rl.White)
+
+			if *birdCord.BirdPosX >= float32(rl.GetScreenWidth()-50) || *birdCord.BirdPosY >= float32(rl.GetScreenHeight()-59) {
+				GameOver = true
+				game.CurrentState = game.EndGame
+			}
+
+			// NOTE : These are for bg and bird rendering
 
 			rl.DrawTexture(wallTexture, initialX-wallTexture.Width/2, initialY-wallTexture.Height/2, rl.RayWhite)
+			rl.DrawRectangle(int32(initialPosX), int32(initialPosY), BirdUpTexture.Width, BirdUpTexture.Height, rl.Green)
+			rl.DrawLine(int32(initialPosX), int32(initialPosY)+10, int32(initialPosX)+100, int32(initialPosY)+10, rl.Red)
+
 			rl.DrawTexture(BirdUpTexture, int32(*birdCord.BirdPosX), int32(*birdCord.BirdPosY), rl.White)
+
+			rl.DrawTexture(pauseTexture, 10, 550, rl.RayWhite)
+			rl.DrawRectangle(10, 550, pauseTexture.Width, pauseTexture.Height, rl.RayWhite)
+
+			// fly and pausePlay function
+			flight()
+			isPaused()
+
+			// FIX: Generate pipes across the screen
+
+		// NOTE: pausing and so on
+
+		// NOTE : add scoring
 
 		case game.EndGame:
 
