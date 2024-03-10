@@ -10,7 +10,7 @@ import (
 
 const (
 	ScreenWidth  = 1024
-	ScreenHeight = 576
+	ScreenHeight = 768
 	fps          = 120
 )
 
@@ -37,16 +37,13 @@ func main() {
 	BirdDown := rl.LoadImage("sprites/redbird-downflap.png")
 
 	pipeUp := rl.LoadImage("sprites/pipe-green.png")
-	pipeDown := rl.LoadImage("sprites/pipe-red.png")
+	pipeDown := rl.LoadImage("sprites/pipe_down.png")
 
 	wall := rl.LoadImage("./sprites/wall.png")
 	wallTexture := rl.LoadTextureFromImage(wall)
 
 	logo := rl.LoadImage("sprites/logo.png")
 	logoTexture := rl.LoadTextureFromImage(logo)
-
-	pause := rl.LoadImage("sprites/pause.png")
-	pauseTexture := rl.LoadTextureFromImage(pause)
 
 	BirdLogo := rl.LoadImage("./sprites/message.png")
 	BlTexture := rl.LoadTextureFromImage(BirdLogo)
@@ -55,7 +52,6 @@ func main() {
 	deadTexture := rl.LoadTextureFromImage(dead)
 
 	BirdUpTexture := rl.LoadTextureFromImage(BirdUp)
-	// BirdDownTexture := rl.LoadTextureFromImage(BirdDown)
 
 	PipeUpTexture := rl.LoadTextureFromImage(pipeUp)
 	PipeDownTexture := rl.LoadTextureFromImage(pipeDown)
@@ -89,6 +85,7 @@ func main() {
 
 	game.CurrentState = game.Title
 	delta := rl.GetFrameTime()
+	pipes := game.PipeProps{}
 
 	for !rl.WindowShouldClose() {
 
@@ -103,17 +100,17 @@ func main() {
 			if frameCounts > 120 {
 				game.CurrentState = game.Menu
 			}
+
 		case game.Menu:
 			if rl.IsKeyDown(rl.KeyEnter) || rl.IsMouseButtonDown(rl.MouseLeftButton) {
 				game.CurrentState = game.EnterGame
 			} else {
 				rl.DrawTexture(BlTexture, int32(initialX)-BlTexture.Width/2, int32(initialY)-BlTexture.Height/2, rl.RayWhite)
 			}
+
 		case game.EnterGame:
 
-			// var newbvPosY float32
-			var pauseYcord float32
-			var pauseXcord float32
+			// NOTE: pausing and so on, tried saving the cureeent pos but doesnot seem to need
 
 			isPaused := func() {
 				if !Paused && rl.IsKeyPressed(rl.KeyBackspace) {
@@ -122,35 +119,43 @@ func main() {
 					Paused = false
 				}
 				if Paused {
-					rl.DrawTexture(BirdUpTexture, int32(pauseXcord), int32(pauseYcord), rl.RayWhite)
 					rl.DrawText("Paused", 50, 50, 40, rl.Red)
 				}
 			}
 
-			// NOTE: This needs some fixes
+			// NOTE: This function needs some fixes, choppy movements
+
 			flight := func() {
 				if !Paused {
 
 					if rl.IsKeyDown(rl.KeySpace) && !GameOver {
 						BirdUpTexture = rl.LoadTextureFromImage(BirdUp)
 						*birdCord.BirdPosY -= game.JumpForce*delta + game.JumpForce
-						pauseYcord = *birdCord.BirdPosY
 					} else {
 						*birdCord.BirdPosY += game.Gravity
 						BirdUpTexture = rl.LoadTextureFromImage(BirdDown)
 					}
 					*birdCord.BirdPosX += game.BirdVelocity*delta + game.BirdVelocity
-					pauseXcord = *birdCord.BirdPosX
+
+					// FIXME: Generate pipes across the screen
+
+					pipes.InitPipes(ScreenHeight, PipeUpTexture, PipeDownTexture)
+
+					pipes.DrawPipes(PipeUpTexture, PipeDownTexture, ScreenHeight)
+					pipes.CheckBirdPass(&birdCord)
+					pipes.SetScoring(10, ScreenHeight-40)
 				}
 			}
 			rl.DrawTexture(BirdUpTexture, int32(*birdCord.BirdPosX), int32(*birdCord.BirdPosY), rl.White)
+
+			// NOTE : gameEnd
 
 			if *birdCord.BirdPosX >= float32(rl.GetScreenWidth()-50) || *birdCord.BirdPosY >= float32(rl.GetScreenHeight()-59) {
 				GameOver = true
 				game.CurrentState = game.EndGame
 			}
 
-			// NOTE : These are for bg and bird rendering
+			// NOTE : rendering and stuffs
 
 			rl.DrawTexture(wallTexture, initialX-wallTexture.Width/2, initialY-wallTexture.Height/2, rl.RayWhite)
 			rl.DrawRectangle(int32(initialPosX), int32(initialPosY), BirdUpTexture.Width, BirdUpTexture.Height, rl.Green)
@@ -158,24 +163,15 @@ func main() {
 
 			rl.DrawTexture(BirdUpTexture, int32(*birdCord.BirdPosX), int32(*birdCord.BirdPosY), rl.White)
 
-			rl.DrawTexture(pauseTexture, 10, 550, rl.RayWhite)
-			rl.DrawRectangle(10, 550, pauseTexture.Width, pauseTexture.Height, rl.RayWhite)
-
-			// fly and pausePlay function
 			flight()
 			isPaused()
-
-			// FIX: Generate pipes across the screen
-
-		// NOTE: pausing and so on
-
-		// NOTE : add scoring
 
 		case game.EndGame:
 
 			if rl.IsKeyDown(rl.KeySpace) {
 
 				GameOver = false
+				Paused = false
 				game.Gravity = 0
 				game.JumpForce = 0
 				game.BirdVelocity = 0
