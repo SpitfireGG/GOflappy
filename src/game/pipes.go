@@ -1,92 +1,64 @@
 package game
 
 import (
-	"fmt"
-	"strconv"
+	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-type PipeProps struct {
-	UpperPos float32
-	LowerPos float32
-	Height   float32
-	Width    float32
-	Velocity float32
-}
-
-var (
-	Score   int32
-	Highest int32
+const (
+	velocity              float32 = 1
+	PIPE_GENERATION_DELAY         = time.Second * 2
+	gapSize                       = 300
+	characterFit                  = 50
 )
 
 var (
-	SpaceBetweenPipes float32 = 110
-	Pipes             []PipeProps
-	dt                = rl.GetFrameTime()
-	BirdPassedThePipe bool
+	pipes        = []PipeProperties{}
+	spawnTimer   = 0
+	lastPipeTime time.Time
+	upperPosXY   = 0
 )
 
-type Piper interface {
-	DrawPipes(upper, lower rl.Texture2D)
-	InitPipes(upper, lower rl.Texture2D) *PipeProps
-	UpdatePipePos(upper, lower rl.Texture2D)
-	CheckBirdPass(b *Bird) (bool, error)
-	SetScoring(xpos, ypos int32)
-	Checkcollision()
+type PipeProperties struct {
+	upper     rl.Texture2D
+	lower     rl.Texture2D
+	upperPosX float32
+	lowerPosX float32
+	PosY      float32
 }
 
-func (pipe *PipeProps) InitPipes(windowHeight int32, upper, lower rl.Texture2D) *PipeProps {
-	pipeHeight := float32(rl.GetRandomValue(windowHeight/2, (windowHeight - 200)))
-	pipeX := float32(rl.GetScreenWidth()/2 + 200)
-	pipeY := 0.0
+func MakePipes(upper, lower rl.Texture2D, screenHeight, screenWidth float32) []PipeProperties {
+	randomHeight := rl.GetRandomValue(130, upper.Height/2)
+	pipeX := rl.GetScreenWidth() + 150
 
-	gap := rl.GetRandomValue(50, int32(SpaceBetweenPipes))
-
-	pipePorperties := &PipeProps{
-		UpperPos: pipeX + float32(gap),
-		LowerPos: float32(pipeY) + pipeHeight + float32(gap),
-		Height:   pipeHeight,
-		Width:    float32(upper.Width),
-		Velocity: 3,
+	pipeInstance := PipeProperties{
+		upper:     upper,
+		lower:     lower,
+		upperPosX: float32(pipeX),
+		lowerPosX: float32(pipeX),
+		PosY:      float32(randomHeight),
 	}
-	Pipes = append(Pipes, *pipePorperties)
-	return pipePorperties
-}
-
-func (pipe *PipeProps) DrawPipes(upper, lower rl.Texture2D, windowHeight float32) {
-	for _, pipe := range Pipes {
-		rl.DrawTexture(upper, int32(pipe.UpperPos), int32(pipe.LowerPos), rl.RayWhite)
-		rl.DrawTexture(lower, int32(pipe.UpperPos), int32(pipe.LowerPos+pipe.Height+SpaceBetweenPipes), rl.RayWhite)
+	if time.Since(lastPipeTime) < PIPE_GENERATION_DELAY {
+		return nil
 	}
+
+	pipes = append(pipes, pipeInstance)
+	lastPipeTime = time.Now()
+
+	return pipes
 }
 
-func (pipe *PipeProps) UpdatePipePos(upper, lower rl.Texture2D) {
-	for i, pipe := range Pipes {
-		Pipes[i].UpperPos -= pipe.UpperPos + pipe.Velocity*dt
-
-		if pipe.UpperPos <= float32(rl.GetScreenWidth()) {
-			Pipes = append(Pipes[:i], Pipes[i+1:]...)
-		}
+func DrawAndUpdatePipes(upper, lower rl.Texture2D, screenHeight, screenWidth float32) error {
+	delta := rl.GetFrameTime()
+	for _, pipe := range pipes {
+		rl.DrawTexture(pipe.upper, int32(pipe.upperPosX), int32(upperPosXY), rl.White)
+		rl.DrawTexture(pipe.lower, int32(pipe.lowerPosX), int32(pipe.PosY+gapSize-characterFit), rl.White)
 	}
-}
 
-func (pipe *PipeProps) CheckBirdPass(b *Bird) bool {
-	for _, pipe := range Pipes {
-		if *b.BirdPosX >= pipe.UpperPos {
-			BirdPassedThePipe = true
-		}
+	for i := range pipes {
+		pipes[i].upperPosX -= velocity*delta + velocity
+		pipes[i].lowerPosX -= velocity*delta + velocity
 	}
-	return true
-}
-
-func (pipe *PipeProps) SetScoring(xpos, ypos int32) {
-	if BirdPassedThePipe {
-		Score += 5
-		score := strconv.Itoa(int(Score))
-		rl.DrawText(fmt.Sprintf("score : %s", score), xpos, ypos, 42, rl.Yellow)
-	}
-}
-
-func (pipe *PipeProps) Checkcollision() {
+	return nil
 }
