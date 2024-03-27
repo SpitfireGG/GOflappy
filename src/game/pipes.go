@@ -15,6 +15,7 @@ const (
 
 var (
 	pipes        = []PipeProperties{}
+	pipesRemove  = make([]int, 0) // Store indices of pipes to remove
 	spawnTimer   = 0
 	lastPipeTime time.Time
 	upperPosXY   = 0
@@ -51,14 +52,23 @@ func MakePipes(upper, lower rl.Texture2D, screenHeight, screenWidth float32) []P
 
 func DrawAndUpdatePipes(upper, lower rl.Texture2D, screenHeight, screenWidth float32) error {
 	delta := rl.GetFrameTime()
-	for _, pipe := range pipes {
-		rl.DrawTexture(pipe.upper, int32(pipe.upperPosX), int32(upperPosXY), rl.White)
-		rl.DrawTexture(pipe.lower, int32(pipe.lowerPosX), int32(pipe.PosY+gapSize-characterFit), rl.White)
-	}
-
 	for i := range pipes {
+		rl.DrawTexture(pipes[i].upper, int32(pipes[i].upperPosX), int32(upperPosXY), rl.White)
+		rl.DrawRectangle(int32(pipes[i].upperPosX), int32(upperPosXY), upper.Width, upper.Height, rl.Yellow)
+		rl.DrawTexture(pipes[i].lower, int32(pipes[i].lowerPosX), int32(pipes[i].PosY+gapSize-characterFit), rl.White)
+		rl.DrawRectangle(int32(pipes[i].lowerPosX), int32(pipes[i].PosY+gapSize-characterFit), lower.Width, lower.Height, rl.Yellow)
+
 		pipes[i].upperPosX -= velocity*delta + velocity
 		pipes[i].lowerPosX -= velocity*delta + velocity
+
+		if pipes[i].upperPosX <= -50 || pipes[i].lowerPosX <= -50 {
+			pipesRemove = append(pipesRemove, i) // Store index of pipe to remove
+		}
 	}
+	for i := len(pipesRemove) - 1; i >= 0; i-- {
+		pipes = append(pipes[:pipesRemove[i]], pipes[pipesRemove[i]+1:]...)
+	}
+	pipesRemove = pipesRemove[:0]
+
 	return nil
 }
