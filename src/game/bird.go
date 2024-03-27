@@ -2,8 +2,8 @@ package game
 
 var (
 	BirdVelocity float32 = 0.5
-	JumpForce    float32 = 0.4
-	Gravity      float32 = .5
+	JumpForce    float32 = 0.5
+	Gravity      float32 = 0.8
 )
 
 type Bird struct {
@@ -23,6 +23,6 @@ func (b *Bird) ResetBirdPos(screenWidth, screenHeight int32, birdWidth, birdHeig
 	*b.BirdPosX = float32(screenWidth)/2 - b.BirdWidth
 	*b.BirdPosY = float32(screenHeight)/2 - b.BirdHeight - 40
 	BirdVelocity = 0.5
-	JumpForce = 0.4
-	Gravity = 0.5
+	JumpForce = 0.5
+	Gravity = 0.8
 }
