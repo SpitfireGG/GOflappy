@@ -9,4 +9,8 @@ const (
 	EndGame
 )
 
+var PAUSED bool = false
+
 var CurrentState = Title
+
+var GAMEOVER bool = false
